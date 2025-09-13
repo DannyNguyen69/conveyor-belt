@@ -61,7 +61,7 @@ class ESP32ConveyorControlGUI:
         self.labels_outside_area = True
         
         # Scan timing and control - FIXED
-        self.scan_delay = 3.0
+        self.scan_delay = 2.0
         self.scan_timer_start = None
         self.is_scanning = False
         self.products_stable_in_area = False
@@ -69,7 +69,7 @@ class ESP32ConveyorControlGUI:
         self.last_motor_state = None
         
         # Photo capture settings
-        self.photo_save_path = "D:/cap_bc"
+        self.photo_save_path = "./cap_bc"
         self.capture_enabled = True
         self.last_capture_time = 0
         self.capture_cooldown = 5.0
@@ -312,7 +312,7 @@ class ESP32ConveyorControlGUI:
         scan_row = ttk.Frame(scan_frame)
         scan_row.pack(fill=tk.X, pady=1)
         ttk.Label(scan_row, text="Delay:", font=("Arial", 8)).pack(side=tk.LEFT)
-        self.scan_delay_var = tk.DoubleVar(value=3.0)
+        self.scan_delay_var = tk.DoubleVar(value=2.0)
         scan_scale = ttk.Scale(scan_row, from_=1.0, to=10.0, orient=tk.HORIZONTAL,
                               variable=self.scan_delay_var, length=120)
         scan_scale.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
@@ -483,7 +483,7 @@ class ESP32ConveyorControlGUI:
     def on_area_adjustment(self, value=None):
         """Called when area adjustment sliders change"""
         if self.camera_running and self.auto_area_enabled:
-            self.root.after(100, self.auto_set_detection_area)  # Small delay to avoid too frequent updates
+            self.root.after(100, self.auto_set_detection_area)  
     
     def auto_set_detection_area(self):
         """Automatically set detection area with adjustable parameters"""
@@ -656,7 +656,7 @@ class ESP32ConveyorControlGUI:
             
     def start_camera(self):
         try:
-            self.camera = cv2.VideoCapture(1)
+            self.camera = cv2.VideoCapture(0)
             if not self.camera.isOpened():
                 messagebox.showerror("Error", "Cannot open camera")
                 return
@@ -966,9 +966,20 @@ class ESP32ConveyorControlGUI:
                                 if self.capture_photo(self.current_frame):
                                     detection_text += f"\n*** PHOTO CAPTURED ***"
                                     self.log_message("Scan completed - Photo captured successfully")
-                                else:
+                                    try:
+                                        frame_bgr = cv2.cvtColor(self.current_frame, cv2.COLOR_RGB2BGR)
+                                        results = self.yolo_model(frame_bgr, conf=self.threshold_var.get())
+                                        for r in results:
+                                            boxes = r.boxes
+                                            if boxes is not None:
+                                                for box in boxes:
+                                                    cls = int(box.cls[0])
+                                                    class_name = self.yolo_model.names[cls]
+                                                    Products.append(class_name)
+                                    except Exception as e:
+                                        self.log_message(f"YOLO on captured photo error: {str(e)}")
+                            else:
                                     self.log_message("Scan completed - Photo capture failed")
-
                             self.detection_status.set("Scan completed - Products ready for removal")
                             self.detection_status.set("Checking products")
                             Wrong_hole=list(set(W_products)&set(Products))    
@@ -1013,11 +1024,11 @@ class ESP32ConveyorControlGUI:
                         
                         self.detection_status.set("Products outside area - Moving to detection zone")
                         self.conveyor_status.set("RUNNING - Moving products to scan area")
-                if Wrong_hole:
-                    self.log_message("hư cmnr")
-                    self.quick_servo(180)
-                else:
-                    self.log_message("bơ phẹt")
+                    if Wrong_hole:
+                        self.log_message("hư cmnr")
+                        self.quick_servo(180)
+                    else:
+                        self.log_message("bơ phẹt")
                 self.root.after(0, self.update_camera_display, frame_rgb)
                 self.root.after(0, self.update_detection_info, detection_text)
                 
