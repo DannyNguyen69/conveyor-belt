@@ -4,8 +4,8 @@
 #include <LiquidCrystal_I2C.h>
 
 // WiFi credentials
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "DUY";
+const char* password = "12345678";
 
 // Định nghĩa chân
 const int IN1 = 26;
