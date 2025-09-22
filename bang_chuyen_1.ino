@@ -32,7 +32,7 @@ int servoAngle = 90;
 int pwmSpeed = 0;
 
 unsigned long lastDisplayToggle = 0;
-const long displayInterval = 2000;
+const long displayInterval = 5000;
 bool displayScreen1 = true;
 
 void setup() {
