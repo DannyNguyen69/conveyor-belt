@@ -16,9 +16,7 @@ const int IN1 = 26;
 const int IN2 = 27;
 const int ENA = 25;
 const int SERVO_PIN = 14;
-const int PWM_CHANNEL = 0;
-const int PWM_FREQ = 5000;
-const int PWM_RESOLUTION = 8;
+
 
 Servo myServo;
 // khai bao bien oleb
@@ -32,7 +30,7 @@ int servoAngle = 90;
 int pwmSpeed = 0;
 
 unsigned long lastDisplayToggle = 0;
-const long displayInterval = 2000;
+const long displayInterval = 5000;
 bool displayScreen1 = true;
 
 void setup() {
@@ -48,8 +46,6 @@ void setup() {
   pinMode(ENA, OUTPUT);
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
-  ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttachPin(ENA, PWM_CHANNEL);
 
   myServo.attach(SERVO_PIN);
   myServo.write(servoAngle);
@@ -139,14 +135,14 @@ void setup() {
       if (signal == "HIGH") {
         digitalWrite(IN1, HIGH);
         digitalWrite(IN2, LOW);
-        ledcWrite(PWM_CHANNEL, 128);
+        digitalWrite(ENA, HIGH);  
         motorStatus = "RUNNING";
         conveyorStatus = "RUNNING";
         pwmSpeed = 50;
       } else {
         digitalWrite(IN1, LOW);
         digitalWrite(IN2, LOW);
-        ledcWrite(PWM_CHANNEL, 0);
+        digitalWrite(ENA, LOW);
         motorStatus = "STOPPED";
         conveyorStatus = "STOPPED";
         pwmSpeed = 0;
@@ -187,7 +183,7 @@ void updateOLED() {
       display.print(" deg");
     }
     else {
-      display.setTextSize(3);
+      display.setTextSize(1);
       display.setTextColor(WHITE);
       display.setCursor(0, 10); 
       display.print("WiFi Connected");
@@ -197,4 +193,3 @@ void updateOLED() {
     display.display();
   }
 }
-
