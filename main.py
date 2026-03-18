@@ -939,6 +939,8 @@ class ESP32ConveyorControlGUI:
                     square_inside = len(labels_inside_area) >= 1
                     square_outside = len(labels_outside_area) >= 1
                     has_products = len(labels_inside_area) > 0 or len(labels_outside_area) > 0
+
+                    #đổi dùng delay_time, chia ra 2 case: đúng - sai.
                     
                     if square_inside and not self.is_scanning and not self.products_stable_in_area:
                         # CASE 1: Products enter detection area - STOP MOTOR and START SCAN
