@@ -57,7 +57,7 @@ class ESP32ConveyorControlGUI:
         self.manual_stop_requested = False
         
         # Detection parameters
-        self.detection_threshold = 0.5
+        self.detection_threshold = 0.6
         self.labels_outside_area = True
         
         # Scan timing and control - FIXED
@@ -100,6 +100,11 @@ class ESP32ConveyorControlGUI:
         if not os.path.exists(self.photo_save_path):
             os.makedirs(self.photo_save_path)
 
+        self.scan_results = []  # lưu kết quả mỗi lần scan
+        self.result_save_path = "./scan_results"
+        if not os.path.exists(self.result_save_path):
+            os.makedirs(self.result_save_path)
+
 # =============================================================================================================== #
 #                                                  GUI SETUP                                                     #
 # =============================================================================================================== #             
@@ -128,7 +133,7 @@ class ESP32ConveyorControlGUI:
                                      width=self.canvas_width, height=self.canvas_height,
                                      highlightthickness=1, highlightbackground="gray")
         self.camera_canvas.pack(pady=2)
-        self.camera_canvas.bind("<Button-1>", self.on_canvas_click)
+
         
         # Camera controls - horizontal layout to save space
         camera_controls = ttk.Frame(camera_frame)
@@ -177,15 +182,6 @@ class ESP32ConveyorControlGUI:
                                        relief=tk.RAISED, borderwidth=1,
                                        padx=6, pady=2)
         self.smart_area_btn.pack(side=tk.LEFT, padx=2)
-        
-        # Manual area button (backup)
-        self.manual_area_btn = tk.Button(cam_row2, text="Manual", 
-                                        command=self.start_setting_area,
-                                        bg="#FF9800", fg="white",
-                                        font=("Arial", 8, "bold"),
-                                        relief=tk.RAISED, borderwidth=1,
-                                        padx=6, pady=2)
-        self.manual_area_btn.pack(side=tk.LEFT, padx=2)
         
         self.clear_area_btn = tk.Button(cam_row2, text="Clear", 
                                        command=self.clear_detection_area,
@@ -307,6 +303,7 @@ class ESP32ConveyorControlGUI:
         
         # Scan Settings - collapsible
         scan_frame = ttk.LabelFrame(scrollable_frame, text="Scan Settings", padding=3)
+        
         scan_frame.pack(fill=tk.X, pady=2)
         
         scan_row = ttk.Frame(scan_frame)
@@ -375,7 +372,7 @@ class ESP32ConveyorControlGUI:
         thresh_row = ttk.Frame(config_frame)
         thresh_row.pack(fill=tk.X, pady=1)
         ttk.Label(thresh_row, text="Threshold:", font=("Arial", 8)).pack(side=tk.LEFT)
-        self.threshold_var = tk.DoubleVar(value=0.1)
+        self.threshold_var = tk.DoubleVar(value=0.6)
         threshold_scale = ttk.Scale(thresh_row, from_=0.1, to=0.9, orient=tk.HORIZONTAL,
                                    variable=self.threshold_var, length=100)
         threshold_scale.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
@@ -526,7 +523,6 @@ class ESP32ConveyorControlGUI:
         ]
         
         self.detection_area_set = True
-        self.setting_area = False
         self.auto_area_enabled = True
         
         # Draw the area
@@ -558,7 +554,7 @@ class ESP32ConveyorControlGUI:
                         continue
                         
                     frame = cv2.resize(frame, (self.canvas_width, self.canvas_height))
-                    results = self.yolo_model(frame, conf=0.3)
+                    results = self.yolo_model(frame, conf=0.6, device = 'cuda')#######
                     
                     for r in results:
                         boxes = r.boxes
@@ -646,7 +642,8 @@ class ESP32ConveyorControlGUI:
 # =============================================================================================================== #    
     def load_yolo_model(self):
         try:
-            self.yolo_model = YOLO(r'D:\project\BangChuyen\code\runs\train\exp_yolov12\weights\best.pt')
+            self.yolo_model = YOLO(r'D:\Project\Python\NCKH\bangchuyen5.pt')
+            self.yolo_model.to("cuda")
             self.log_message("YOLO model loaded successfully!")
             self.update_detection_info("YOLO model ready. Auto area enabled.")
         except Exception as e:
@@ -656,7 +653,7 @@ class ESP32ConveyorControlGUI:
             
     def start_camera(self):
         try:
-            self.camera = cv2.VideoCapture(0)
+            self.camera = cv2.VideoCapture(1)
             if not self.camera.isOpened():
                 messagebox.showerror("Error", "Cannot open camera")
                 return
@@ -688,21 +685,6 @@ class ESP32ConveyorControlGUI:
         self.area_status.config(text="Camera stopped", foreground="red")
         self.log_message("Camera stopped")
         
-    def start_setting_area(self):
-        """Manual area setting (backup method)"""
-        if not self.camera_running:
-            messagebox.showwarning("Warning", "Please start camera first")
-            return
-            
-        self.setting_area = True
-        self.auto_area_enabled = False
-        self.detection_corners = []
-        self.detection_area_set = False
-        self.camera_canvas.delete("detection_point")
-        self.camera_canvas.delete("detection_area")
-        self.area_status.config(text="Click 4 points (0/4)", foreground="orange")
-        self.log_message("Started manual area setting - click 4 points")
-        
     def clear_detection_area(self):
         self.detection_corners = []
         self.detection_area_set = False
@@ -713,7 +695,6 @@ class ESP32ConveyorControlGUI:
         self.area_status.config(text="Auto area ready", foreground="blue")
         self.log_message("Detection area cleared - auto mode enabled")
         
-    def on_canvas_click(self, event):
         """Handle manual area setting clicks"""
         if not self.setting_area or len(self.detection_corners) >= 4:
             return
@@ -847,17 +828,110 @@ class ESP32ConveyorControlGUI:
         except Exception as e:
             self.log_message(f"Photo capture error: {str(e)}")
             return False
-            
+
+    def save_scan_result(self, wrong_items):
+        try:
+            if not wrong_items:
+                return
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"scan_{timestamp}.txt"
+            filepath = os.path.join(self.result_save_path, filename)
+
+            with open(filepath, "w", encoding="utf-8") as file:
+                file.write(f"Time: {timestamp}\n")
+                file.write("Wrong Products:\n")
+
+                for item in wrong_items:
+                    cls, x, y = item
+                    file.write(f"- {cls} at ({x}, {y})\n")
+
+            self.log_message(f"Saved scan result: {filename}")
+
+        except Exception as e:
+            self.log_message(f"Save result error: {str(e)}")
+
+     
     def manual_capture(self):
-        """Manual photo capture"""
-        if hasattr(self, 'current_frame') and self.current_frame is not None:
-            if self.capture_photo(self.current_frame):
-                messagebox.showinfo("Success", "Photo captured!")
-            else:
-                messagebox.showerror("Error", "Failed to capture photo")
-        else:
-            messagebox.showwarning("Warning", "No camera frame available")
-            
+        """Capture -> then scan from saved image"""
+        try:
+            if not hasattr(self, 'current_frame') or self.current_frame is None:
+                messagebox.showwarning("Warning", "No camera frame available")
+                return
+
+            # 1. chụp ảnh
+            image_path = self.capture_photo(self.current_frame)
+
+            if not image_path:
+                messagebox.showerror("Error", "Capture failed")
+                return
+
+            # 2. scan từ ảnh đã lưu
+            self.scan_from_image(image_path)
+
+            messagebox.showinfo("Done", "Captured + scanned from image!")
+
+        except Exception as e:
+            self.log_message(f"Manual capture error: {str(e)}")
+
+    def scan_from_image(self, image_path):
+        """Load image -> detect -> draw -> save result"""
+        try:
+            frame_bgr = cv2.imread(image_path)
+            if frame_bgr is None:
+                self.log_message("Failed to read image")
+                return
+
+            results = self.yolo_model(frame_bgr, conf=self.threshold_var.get())
+
+            Products = []
+            Wrong_hole = []
+
+            for r in results:
+                boxes = r.boxes
+                if boxes is not None:
+                    for box in boxes:
+                        cls = int(box.cls[0])
+                        class_name = self.yolo_model.names[cls]
+
+                        if class_name not in W_products:
+                            continue
+
+                        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                        cx = int((x1 + x2) / 2)
+                        cy = int((y1 + y2) / 2)
+
+                        Products.append((class_name, cx, cy))
+
+                        # ===== DRAW =====
+                        color = (0, 0, 255) if class_name in W_products else (0, 255, 0)
+
+                        cv2.rectangle(frame_bgr, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                        cv2.circle(frame_bgr, (cx, cy), 5, color, -1)
+
+                        text = f"{class_name} ({cx},{cy})"
+                        cv2.putText(frame_bgr, text,
+                                    (cx + 5, cy - 5),
+                                    cv2.FONT_HERSHEY_SIMPLEX,
+                                    0.5, color, 1)
+
+            # ===== FILTER WRONG =====
+            Wrong_hole = [p for p in Products if p[0] in W_products]
+
+            self.last_wrong_items = Wrong_hole
+
+            # ===== SAVE TXT =====
+            self.save_scan_result(Wrong_hole)
+
+            # ===== SAVE IMAGE OVERLAY =====
+            out_path = image_path.replace(".jpg", "_detected.jpg")
+            cv2.imwrite(out_path, frame_bgr)
+
+            self.log_message(f"Scan from image done: {os.path.basename(out_path)}")
+
+        except Exception as e:
+            self.log_message(f"Scan image error: {str(e)}")
+
     def set_photo_folder(self):
         """Select photo save folder"""
         folder = filedialog.askdirectory(initialdir=self.photo_save_path)
@@ -896,7 +970,7 @@ class ESP32ConveyorControlGUI:
                 
                 if self.yolo_model:
                     results = self.yolo_model(frame, conf=self.threshold_var.get())
-                    annotated_frame = results[0].plot()
+                    annotated_frame = frame.copy()
                     
                     for r in results:
                         boxes = r.boxes
@@ -905,10 +979,30 @@ class ESP32ConveyorControlGUI:
                                 cls = int(box.cls[0])
                                 conf = float(box.conf[0])
                                 class_name = self.yolo_model.names[cls]
-                                
+
+                                # ===== CHỈ GIỮ W_PRODUCTS =====
+                                if class_name not in W_products:
+                                    continue
+
                                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                                 center_x = (x1 + x2) / 2
                                 center_y = (y1 + y2) / 2
+                                
+                                color = (0, 0, 255) 
+                                cv2.rectangle(annotated_frame, 
+                                            (int(x1), int(y1)), 
+                                            (int(x2), int(y2)), 
+                                            color, 2)
+
+                                cv2.circle(annotated_frame, 
+                                        (int(center_x), int(center_y)), 
+                                        5, color, -1)
+
+                                text = f"{class_name} {conf:.2f}"
+                                cv2.putText(annotated_frame, text,
+                                            (int(x1), int(y1) - 5),
+                                            cv2.FONT_HERSHEY_SIMPLEX,
+                                            0.5, color, 1)
                                 
                                 detection_text += f"- {class_name}: {conf:.2f}\n"
                                 
@@ -956,7 +1050,7 @@ class ESP32ConveyorControlGUI:
                         self.log_message(f"Products in detection area - Motor STOPPED - Starting {self.scan_delay}s scan")
                         if self.detection_area_set:
                             if self.point_in_polygon((center_x, center_y), self.detection_corners):
-                                Products.append(class_name) 
+                                Products.append((class_name, int(center_x), int(center_y)))
                     elif self.is_scanning and square_inside:
                         # CASE 2: Currently scanning - update remaining time
                         if self.scan_timer_start and (current_time - self.scan_timer_start) >= self.scan_delay:
@@ -977,14 +1071,16 @@ class ESP32ConveyorControlGUI:
                                                 for box in boxes:
                                                     cls = int(box.cls[0])
                                                     class_name = self.yolo_model.names[cls]
-                                                    Products.append(class_name)
+                                                    if class_name not in W_products:
+                                                        continue
                                     except Exception as e:
                                         self.log_message(f"YOLO on captured photo error: {str(e)}")
                             else:
                                     self.log_message("Scan completed - Photo capture failed")
                             self.detection_status.set("Scan completed - Products ready for removal")
                             self.detection_status.set("Checking products")
-                            Wrong_hole=list(set(W_products)&set(Products))    
+                            Wrong_hole = [p for p in Products if p[0] in W_products]
+                            self.save_scan_result(Wrong_hole)    
                             self.conveyor_status.set("SCAN COMPLETED - Remove products to continue")
                             
                         else:
