@@ -17,12 +17,13 @@ class ConveyorService:
     # CONNECT ESP32
     # =====================================================
 
-    def connect_esp32(self):
+    def connect_esp32(self, ip):
 
+        self.esp32_client.set_ip(ip)
         success = self.esp32_client.ping()
 
         self.state.esp32_connected = success
-
+        print(self.state.esp32_connected)
         return success
 
     # =====================================================
@@ -42,7 +43,7 @@ class ConveyorService:
         if not self.state.esp32_connected:
             return False
 
-        success = self.motor.start()
+        success = self.motor.start_conveyor()
 
         if success:
 
@@ -56,7 +57,7 @@ class ConveyorService:
 
     def stop_conveyor(self):
 
-        success = self.motor.stop()
+        success = self.motor.stop_conveyor()
 
         if success:
 

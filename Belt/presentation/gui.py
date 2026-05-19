@@ -114,7 +114,7 @@ class GUI:
         self.start_conveyor_btn = tk.Button(
             conveyor_controls,
             text="START",
-            command=self.controller.conveyor.on_start_clicked,
+            command=lambda: self.controller.conveyor.on_start_clicked(),
             bg="#4CAF50",
             fg="white",
             padx=20,
@@ -126,7 +126,7 @@ class GUI:
         self.stop_conveyor_btn = tk.Button(
             conveyor_controls,
             text="STOP",
-            command=self.controller.conveyor.on_stop_clicked,
+            command=lambda: self.controller.conveyor.on_stop_clicked(),
             bg="#f44336",
             fg="white",
             padx=20,
@@ -160,7 +160,7 @@ class GUI:
         self.connect_btn = tk.Button(
             connection_frame,
             text="Connect",
-            command=self.controller.conveyor.on_connect_clicked,
+            command=lambda: self.controller.conveyor.on_connect_clicked(self.ip_entry.get()),
             bg="#2196F3",
             fg="white"
         )
@@ -170,7 +170,7 @@ class GUI:
         self.disconnect_btn = tk.Button(
             connection_frame,
             text="Disconnect",
-            command=self.controller.conveyor.on_disconnect_clicked,
+            command=lambda: self.controller.conveyor.on_disconnect_clicked(),
             bg="#FF9800",
             fg="white"
         )
