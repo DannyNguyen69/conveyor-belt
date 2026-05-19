@@ -9,11 +9,9 @@
               HIGH,LOW: Forward
               LOW,HIGH: Backward
               HIGH,HIGH: Brake
-          1.2. ENA: PMW, config speed motor
 */
 const int IN1 = 26;
-const int IN2 = 27;
-const int ENA = 25;       
+const int IN2 = 27;      
 const int SERVO_PIN = 14;
 
 // ====================== wifi ======================
@@ -28,18 +26,15 @@ AsyncWebServer server(80);
 // ====================== var ======================
 String motorStatus = "STOPPED";
 int servoAngle = 90;
-int pwmSpeed = 0;
 
 void setup() {
   Serial.begin(115200);
 // ======== setup =========
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
-  pinMode(ENA, OUTPUT);
 
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
-  analogWrite(ENA, 0);
 
   myServo.attach(SERVO_PIN);
   myServo.write(servoAngle);
@@ -92,7 +87,7 @@ void setup() {
   <h2>Servo Control</h2>
   <p>Servo Angle: <span id="servoVal">90</span>°</p>
   <input type="range" min="0" max="180" value="90" id="slider" 
-         oninput="setServo(this.value)">
+         onchange="setServo(this.value)"
 
   <h2>Phản hồi từ ESP32</h2>
   <div class="response" id="response">Chưa có phản hồi...</div>
@@ -134,6 +129,15 @@ void setup() {
 
     request->send(200, "text/html", html);
   });
+  server.on("/ping", HTTP_GET,
+  [](AsyncWebServerRequest *request)
+  {
+      request->send(
+          200,
+          "application/json",
+          "{\"status\":\"ok\"}"
+      );
+  });
 
   server.on("/motorControl", HTTP_GET, [](AsyncWebServerRequest *request) {
     String message = "";
@@ -143,17 +147,13 @@ void setup() {
       
       if (state == 1) {
         digitalWrite(IN1, HIGH);
-        digitalWrite(IN2, LOW);
-        analogWrite(ENA, 180);     
+        digitalWrite(IN2, LOW);   
         motorStatus = "RUNNING";
-        pwmSpeed = 70;
         message = "Motor đã chạy";
       } else {
         digitalWrite(IN1, LOW);
         digitalWrite(IN2, LOW);
-        analogWrite(ENA, 0);
         motorStatus = "STOPPED";
-        pwmSpeed = 0;
         message = "Motor đã dừng";
       }
     }
