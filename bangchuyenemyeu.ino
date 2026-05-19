@@ -4,15 +4,23 @@
 
 /* ====================== Summary ======================
       ====================== 1. Config ======================
-          1.1. IN1,IN2: State of motor
+          1.1. R_PWM, L_RWM: State of motor
               LOW,LOW: Brake / Stop
               HIGH,LOW: Forward
               LOW,HIGH: Backward
               HIGH,HIGH: Brake
-*/
-const int IN1 = 26;
-const int IN2 = 27;      
+          1.2. R_IS, L_IS: current arlarm output
+          1.3. R_EN, L_EN: ENA BTS7960
+*/   
+//Servo
 const int SERVO_PIN = 14;
+//Motor
+const int R_PWM = 26;
+const int L_PWM = 27;
+const int R_IS = 16;
+const int R_EN = 17;
+const int L_IS = 18;
+const int L_EN = 21;
 
 // ====================== wifi ======================
 const char* ssid = "DUY";
@@ -30,14 +38,20 @@ int servoAngle = 90;
 void setup() {
   Serial.begin(115200);
 // ======== setup =========
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-
   myServo.attach(SERVO_PIN);
   myServo.write(servoAngle);
+
+  pinMode(R_PWM, OUTPUT);
+  pinMode(L_PWM, OUTPUT);
+
+  pinMode(R_EN, OUTPUT);
+  pinMode(L_EN, OUTPUT);
+
+  digitalWrite(R_EN, HIGH);
+  digitalWrite(L_EN, HIGH);
+
+  digitalWrite(R_PWM, LOW);
+  digitalWrite(L_PWM, LOW);
 // ====================================
 
   // Kết nối WiFi
@@ -146,13 +160,13 @@ void setup() {
       int state = request->getParam("state")->value().toInt();
       
       if (state == 1) {
-        digitalWrite(IN1, HIGH);
-        digitalWrite(IN2, LOW);   
+        digitalWrite(R_PWM, HIGH);
+        digitalWrite(L_PWM, LOW);  
         motorStatus = "RUNNING";
         message = "Motor đã chạy";
       } else {
-        digitalWrite(IN1, LOW);
-        digitalWrite(IN2, LOW);
+        digitalWrite(R_PWM, LOW);
+        digitalWrite(L_PWM, LOW); 
         motorStatus = "STOPPED";
         message = "Motor đã dừng";
       }
