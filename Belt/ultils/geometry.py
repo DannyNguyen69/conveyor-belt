@@ -1,6 +1,6 @@
 class PointPolygon:
     @staticmethod
-    def point_in_polygon(self, point, polygon):
+    def point_in_polygon( point, polygon):
         x, y = point
         inside = False
         n = len(polygon)
